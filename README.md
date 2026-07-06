@@ -2,13 +2,25 @@
 
 Full-stack task manager with image annotation tooling.
 
-## Frontend
+## Deploy on Vercel (auto CI/CD)
 
-See [`frontend/`](frontend/) for the Next.js app setup and run instructions.
+This repo is connected to Vercel. **Every push to `master`** triggers a production deployment.
+
+| Setting | Value |
+|---------|-------|
+| Vercel project | `frontend` |
+| Root directory | `frontend/` |
+| Production URL | https://frontend-eight-beta-71.vercel.app |
+
+### Required env var (Vercel dashboard)
+
+Set **Project → Settings → Environment Variables**:
+
+- `NEXT_PUBLIC_API_URL` = your backend API URL
+
+### Manual deploy (optional)
 
 ```bash
 cd frontend
-npm install
-cp .env.example .env.local
-npm run dev
+vercel deploy --prod
 ```

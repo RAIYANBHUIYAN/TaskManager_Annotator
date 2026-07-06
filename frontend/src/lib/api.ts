@@ -190,8 +190,7 @@ export async function deleteImage(id: string): Promise<void> {
 }
 
 export async function fetchShapes(imageId: string): Promise<Shape[]> {
-  const { data } = await api.get<Shape[]>(`/api/annotations/images/${imageId}/shapes/`);
-  return data;
+  return fetchAllPages<Shape>(`/api/annotations/images/${imageId}/shapes/`);
 }
 
 export async function createShape(

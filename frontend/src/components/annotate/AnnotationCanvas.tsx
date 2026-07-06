@@ -28,11 +28,17 @@ function useImage(src: string): [HTMLImageElement | null, number, number, boolea
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!src) {
+      setImage(null);
+      setLoading(false);
+      setError(true);
+      return;
+    }
+
     setLoading(true);
     setError(false);
     setImage(null);
     const img = new window.Image();
-    img.crossOrigin = "anonymous";
     img.src = src;
     img.onload = () => {
       setImage(img);
@@ -42,6 +48,10 @@ function useImage(src: string): [HTMLImageElement | null, number, number, boolea
     img.onerror = () => {
       setError(true);
       setLoading(false);
+    };
+    return () => {
+      img.onload = null;
+      img.onerror = null;
     };
   }, [src]);
 
@@ -99,7 +109,7 @@ export default function AnnotationCanvas({
   const [label, setLabel] = useState("Tumor");
   const [hideAnnotations, setHideAnnotations] = useState(false);
 
-  const { data: shapes = [], isLoading } = useQuery({
+  const { data: shapes = [], isFetching: shapesFetching } = useQuery({
     queryKey: ["shapes", imageId],
     queryFn: () => fetchShapes(imageId),
     enabled: !!imageId,
@@ -227,10 +237,10 @@ export default function AnnotationCanvas({
     return [s.x, s.y];
   });
 
-  if (isLoading || imageLoading) {
+  if (imageLoading) {
     return (
       <div className="w-full max-w-[640px] aspect-square bg-slate-900 rounded-xl animate-pulse flex items-center justify-center text-slate-500">
-        Loading…
+        Loading image…
       </div>
     );
   }
@@ -246,6 +256,9 @@ export default function AnnotationCanvas({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-4 text-sm">
+        {shapesFetching && (
+          <span className="text-xs text-slate-400">Loading annotations…</span>
+        )}
         <div className="flex items-center gap-2">
           <label className="text-slate-600">Class:</label>
           <select

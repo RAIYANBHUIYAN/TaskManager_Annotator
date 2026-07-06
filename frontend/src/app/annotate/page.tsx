@@ -30,6 +30,7 @@ export default function AnnotatePage() {
   const {
     data: images = [],
     isLoading,
+    isFetching,
     isError: imagesError,
     refetch: refetchImages,
   } = useQuery({
@@ -66,6 +67,8 @@ export default function AnnotatePage() {
 
   // Auto-select first image or reassign after delete
   useEffect(() => {
+    if (isLoading || isFetching) return;
+
     if (images.length === 0) {
       setSelectedImageId(null);
       return;
@@ -74,7 +77,7 @@ export default function AnnotatePage() {
     if (!selectedImageId || !stillExists) {
       setSelectedImageId(images[0].id);
     }
-  }, [images, selectedImageId]);
+  }, [images, selectedImageId, isLoading, isFetching]);
 
   return (
     <div className="min-h-screen flex flex-col">

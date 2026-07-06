@@ -28,8 +28,12 @@ export default function ImageStrip({
   const uploadMutation = useMutation({
     mutationFn: uploadImage,
     onSuccess: (img) => {
-      queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
+      queryClient.setQueryData<AnnotationImage[]>(["annotation-images"], (old = []) => [
+        img,
+        ...old.filter((item) => item.id !== img.id),
+      ]);
       onSelect(img.id);
+      queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
       toast.success("Image uploaded");
     },
     onError: (error: unknown) => {

@@ -33,6 +33,18 @@ class AnnotationImageSerializer(serializers.ModelSerializer):
         fields = ["id", "image", "uploaded_at", "shape_count"]
         read_only_fields = ["id", "uploaded_at", "shape_count"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.image:
+            url = instance.image.url
+            if url.startswith(("http://", "https://")):
+                data["image"] = url
+            else:
+                request = self.context.get("request")
+                if request is not None:
+                    data["image"] = request.build_absolute_uri(url)
+        return data
+
     def get_shape_count(self, obj):
         return obj.shapes.count()
 

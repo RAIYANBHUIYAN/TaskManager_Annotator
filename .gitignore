@@ -1,8 +1,13 @@
-# Backend (local only — not in this repo yet)
+# Python
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/.env
 backend/db.sqlite3
 backend/media/
+backend/staticfiles/
 backend/venv/
 backend/.venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/.env
+
+# Frontend (handled by frontend/.gitignore)
+frontend/node_modules/
+frontend/.next/

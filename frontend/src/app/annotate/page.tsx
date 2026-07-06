@@ -6,13 +6,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import AppNav from "@/components/shared/AppNav";
+import CanvasErrorBoundary from "@/components/annotate/CanvasErrorBoundary";
 import ImageStrip from "@/components/annotate/ImageStrip";
 import ShapeList from "@/components/annotate/ShapeList";
 import { deleteShape, fetchImages, fetchShapes } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
+function CanvasLoadError() {
+  return (
+    <div className="w-full max-w-[640px] aspect-square bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+      Annotation canvas failed to load. Refresh the page and try again.
+    </div>
+  );
+}
+
 const AnnotationCanvas = dynamic(
-  () => import("@/components/annotate/AnnotationCanvas"),
+  () =>
+    import("@/components/annotate/AnnotationCanvas").catch(() => ({
+      default: CanvasLoadError,
+    })),
   {
     ssr: false,
     loading: () => (
@@ -113,13 +125,15 @@ export default function AnnotatePage() {
 
             {selectedImage ? (
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-                <AnnotationCanvas
-                  key={selectedImage.id}
-                  imageId={selectedImage.id}
-                  imageUrl={selectedImage.image}
-                  selectedShapeId={selectedShapeId}
-                  onSelectShape={setSelectedShapeId}
-                />
+                <CanvasErrorBoundary>
+                  <AnnotationCanvas
+                    key={selectedImage.id}
+                    imageId={selectedImage.id}
+                    imageUrl={selectedImage.image}
+                    selectedShapeId={selectedShapeId}
+                    onSelectShape={setSelectedShapeId}
+                  />
+                </CanvasErrorBoundary>
                 {shapesError ? (
                   <div className="bg-white rounded-xl border border-rose-200 p-4 text-rose-600 text-sm">
                     <p className="mb-2">Failed to load shapes.</p>

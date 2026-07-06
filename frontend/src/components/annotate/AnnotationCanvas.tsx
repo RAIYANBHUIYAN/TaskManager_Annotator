@@ -112,7 +112,9 @@ export default function AnnotationCanvas({
   const queryClient = useQueryClient();
   const stageRef = useRef<Konva.Stage>(null);
   const skipNextClickRef = useRef(false);
-  const [image, naturalW, naturalH, imageLoading, imageError] = useImage(getMediaUrl(imageUrl));
+  const [image, naturalW, naturalH, imageLoading, imageError] = useImage(
+    getMediaUrl(imageUrl, { maxWidth: 1280 }),
+  );
   const { scale, offsetX, offsetY, displayW, displayH } = getScale(naturalW, naturalH);
 
   const [draftPoints, setDraftPoints] = useState<Point[]>([]);
@@ -307,6 +309,7 @@ export default function AnnotationCanvas({
           ref={stageRef}
           width={CANVAS_SIZE}
           height={CANVAS_SIZE}
+          pixelRatio={1}
           onClick={handleStageClick}
           onDblClick={handleStageDblClick}
           className="bg-black cursor-crosshair"

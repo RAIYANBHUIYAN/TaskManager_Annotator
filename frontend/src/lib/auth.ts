@@ -29,8 +29,24 @@ export function getApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 }
 
-export function getMediaUrl(path: string): string {
-  if (path.startsWith("http")) return path;
-  const base = getApiBaseUrl().replace(/\/$/, "");
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+export function getMediaUrl(path: string, options?: { maxWidth?: number }): string {
+  let url: string;
+  if (path.startsWith("http")) {
+    url = path;
+  } else {
+    const base = getApiBaseUrl().replace(/\/$/, "");
+    url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  }
+
+  const maxWidth = options?.maxWidth ?? 0;
+  if (
+    maxWidth > 0 &&
+    url.includes("res.cloudinary.com/") &&
+    url.includes("/upload/") &&
+    !url.includes("/upload/w_")
+  ) {
+    url = url.replace("/upload/", `/upload/w_${maxWidth},c_limit,q_auto/`);
+  }
+
+  return url;
 }

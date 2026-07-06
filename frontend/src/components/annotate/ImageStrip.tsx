@@ -32,7 +32,18 @@ export default function ImageStrip({
       onSelect(img.id);
       toast.success("Image uploaded");
     },
-    onError: () => toast.error("Upload failed"),
+    onError: (error: unknown) => {
+      const detail =
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        error.response &&
+        typeof error.response === "object" &&
+        "data" in error.response
+          ? JSON.stringify(error.response.data)
+          : "Upload failed";
+      toast.error(detail.includes("Cloudinary") ? "Image storage misconfigured on server" : "Upload failed");
+    },
   });
 
   const deleteMutation = useMutation({

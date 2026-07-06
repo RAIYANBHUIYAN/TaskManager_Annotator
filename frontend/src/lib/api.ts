@@ -36,6 +36,9 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
@@ -178,9 +181,7 @@ export async function fetchImages(): Promise<AnnotationImage[]> {
 export async function uploadImage(file: File): Promise<AnnotationImage> {
   const form = new FormData();
   form.append("image", file);
-  const { data } = await api.post<AnnotationImage>("/api/annotations/images/", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const { data } = await api.post<AnnotationImage>("/api/annotations/images/", form);
   return data;
 }
 

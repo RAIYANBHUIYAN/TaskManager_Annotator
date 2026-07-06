@@ -38,22 +38,36 @@ export default function AnnotatePage() {
     queryFn: fetchImages,
   });
 
-  const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
+  const activeImageId =
+    isLoading || isFetching
+      ? selectedImageId
+      : images.length === 0
+        ? null
+        : selectedImageId && images.some((img) => img.id === selectedImageId)
+          ? selectedImageId
+          : (images[0]?.id ?? null);
+
+  const selectedImage = images.find((img) => img.id === activeImageId) ?? null;
+
+  const handleSelectImage = (id: string) => {
+    setSelectedImageId(id);
+    setSelectedShapeId(null);
+  };
 
   const {
     data: shapes = [],
     isError: shapesError,
     refetch: refetchShapes,
   } = useQuery({
-    queryKey: ["shapes", selectedImageId],
-    queryFn: () => fetchShapes(selectedImageId!),
-    enabled: !!selectedImageId,
+    queryKey: ["shapes", activeImageId],
+    queryFn: () => fetchShapes(activeImageId!),
+    enabled: !!activeImageId,
   });
 
   const deleteShapeMutation = useMutation({
     mutationFn: deleteShape,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shapes", selectedImageId] });
+      queryClient.invalidateQueries({ queryKey: ["shapes", activeImageId] });
       queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
       setSelectedShapeId(null);
       toast.success("Shape deleted");
@@ -64,20 +78,6 @@ export default function AnnotatePage() {
   useEffect(() => {
     loadUser();
   }, [loadUser]);
-
-  // Auto-select first image or reassign after delete
-  useEffect(() => {
-    if (isLoading || isFetching) return;
-
-    if (images.length === 0) {
-      setSelectedImageId(null);
-      return;
-    }
-    const stillExists = images.some((img) => img.id === selectedImageId);
-    if (!selectedImageId || !stillExists) {
-      setSelectedImageId(images[0].id);
-    }
-  }, [images, selectedImageId, isLoading, isFetching]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -105,8 +105,8 @@ export default function AnnotatePage() {
             <div className="mb-6">
               <ImageStrip
                 images={images}
-                selectedId={selectedImageId}
-                onSelect={setSelectedImageId}
+                selectedId={activeImageId}
+                onSelect={handleSelectImage}
                 isLoading={isLoading}
               />
             </div>
@@ -114,6 +114,7 @@ export default function AnnotatePage() {
             {selectedImage ? (
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
                 <AnnotationCanvas
+                  key={selectedImage.id}
                   imageId={selectedImage.id}
                   imageUrl={selectedImage.image}
                   selectedShapeId={selectedShapeId}

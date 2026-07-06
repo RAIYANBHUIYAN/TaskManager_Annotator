@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,50 +59,40 @@ export default function TaskModal({
     onError: () => toast.error("Failed to create tag — it may already exist"),
   });
 
+  const formValues = useMemo<TaskFormData>(
+    () =>
+      mode === "edit" && task
+        ? {
+            title: task.title,
+            description: task.description ?? "",
+            status: task.status,
+            priority: task.priority,
+            due_date: task.due_date,
+            tag_ids: task.tags.map((t) => t.id),
+          }
+        : {
+            title: "",
+            description: "",
+            status: "todo",
+            priority: "medium",
+            due_date: selectedDate,
+            tag_ids: [],
+          },
+    [mode, task, selectedDate],
+  );
+
   const {
     register,
     handleSubmit,
-    reset,
     watch,
     setValue,
     formState: { errors },
   } = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "todo",
-      priority: "medium",
-      due_date: selectedDate,
-      tag_ids: [],
-    },
+    values: formValues,
   });
 
   const selectedTagIds = watch("tag_ids") ?? [];
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setNewTagName("");
-    if (mode === "edit" && task) {
-      reset({
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        due_date: task.due_date,
-        tag_ids: task.tags.map((t) => t.id),
-      });
-    } else {
-      reset({
-        title: "",
-        description: "",
-        status: "todo",
-        priority: "medium",
-        due_date: selectedDate,
-        tag_ids: [],
-      });
-    }
-  }, [isOpen, mode, task, reset, selectedDate]);
 
   const toggleTag = (tagId: string) => {
     const current = selectedTagIds;

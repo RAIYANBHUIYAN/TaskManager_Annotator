@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -159,10 +159,6 @@ export default function Board() {
     await deleteMutation.mutateAsync(editingTask.id);
   };
 
-  useEffect(() => {
-    setConfirmDelete(false);
-  }, [isModalOpen, editingTask]);
-
   if (isLoading) return <BoardSkeleton />;
 
   if (isError) {
@@ -182,6 +178,7 @@ export default function Board() {
           onClick={() => {
             setModalMode("create");
             setEditingTask(null);
+            setConfirmDelete(false);
             setIsModalOpen(true);
           }}
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
@@ -215,6 +212,7 @@ export default function Board() {
               onEditTask={(task) => {
                 setModalMode("edit");
                 setEditingTask(task);
+                setConfirmDelete(false);
                 setIsModalOpen(true);
               }}
             />
@@ -230,6 +228,7 @@ export default function Board() {
       </DndContext>
 
       <TaskModal
+        key={isModalOpen ? `${modalMode}-${editingTask?.id ?? "new"}` : "closed"}
         mode={modalMode}
         task={editingTask}
         isOpen={isModalOpen}

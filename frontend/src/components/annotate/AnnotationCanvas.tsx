@@ -24,38 +24,48 @@ const CLOSE_THRESHOLD = 12;
 function useImage(src: string): [HTMLImageElement | null, number, number, boolean, boolean] {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [errorSrc, setErrorSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!src) {
-      setImage(null);
-      setLoading(false);
-      setError(true);
-      return;
-    }
+    if (!src) return;
 
-    setLoading(true);
-    setError(false);
-    setImage(null);
+    let cancelled = false;
     const img = new window.Image();
-    img.src = src;
     img.onload = () => {
+      if (cancelled) return;
       setImage(img);
       setDims({ w: img.naturalWidth, h: img.naturalHeight });
-      setLoading(false);
+      setLoadedSrc(src);
     };
     img.onerror = () => {
-      setError(true);
-      setLoading(false);
+      if (cancelled) return;
+      setImage(null);
+      setErrorSrc(src);
     };
+    img.src = src;
+
     return () => {
+      cancelled = true;
       img.onload = null;
       img.onerror = null;
     };
   }, [src]);
 
-  return [image, dims.w, dims.h, loading, error];
+  if (!src) {
+    return [null, 0, 0, false, true];
+  }
+
+  const loading = loadedSrc !== src && errorSrc !== src;
+  const error = errorSrc === src;
+
+  return [
+    loadedSrc === src ? image : null,
+    loadedSrc === src ? dims.w : 0,
+    loadedSrc === src ? dims.h : 0,
+    loading,
+    error,
+  ];
 }
 
 function getScale(naturalW: number, naturalH: number) {
@@ -206,11 +216,6 @@ export default function AnnotationCanvas({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
-
-  useEffect(() => {
-    setDraftPoints([]);
-    onSelectShape(null);
-  }, [imageId, onSelectShape]);
 
   const renderShape = (shape: Shape, isSelected: boolean) => {
     const flatPoints = shape.points.flatMap((p) => {

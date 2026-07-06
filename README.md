@@ -2,6 +2,15 @@
 
 Full-stack task manager with image annotation tooling.
 
+## Local development
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
 ## Deploy on Vercel (auto CI/CD)
 
 This repo is connected to Vercel. **Every push to `master`** triggers a production deployment.

@@ -48,15 +48,27 @@ USE_CLOUDINARY = bool(
     or (CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET)
 )
 
-if USE_CLOUDINARY:
-    INSTALLED_APPS.insert(
-        INSTALLED_APPS.index("django.contrib.staticfiles"),
-        "cloudinary_storage",
+# MediaCloudinaryStorage reads credentials from CLOUDINARY_STORAGE or env vars.
+# Do not add cloudinary_storage to INSTALLED_APPS — its collectstatic override
+# skips copying static files unless StaticCloudinaryStorage is used.
+if USE_CLOUDINARY and not CLOUDINARY_URL:
+    CLOUDINARY_STORAGE = {
+        "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+        "API_KEY": CLOUDINARY_API_KEY,
+        "API_SECRET": CLOUDINARY_API_SECRET,
+    }
+    import cloudinary
+
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
     )
-    INSTALLED_APPS.insert(
-        INSTALLED_APPS.index("cloudinary_storage"),
-        "cloudinary",
-    )
+elif USE_CLOUDINARY:
+    import cloudinary
+
+    cloudinary.config(cloudinary_url=CLOUDINARY_URL, secure=True)
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -93,7 +105,7 @@ DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        ssl_require=False,
+        ssl_require=bool(os.getenv("DATABASE_URL", "").startswith("postgres")),
     )
 }
 
@@ -120,26 +132,16 @@ if USE_CLOUDINARY:
             "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
         },
     }
-    if CLOUDINARY_URL:
-        import cloudinary
-
-        cloudinary.config(cloudinary_url=CLOUDINARY_URL, secure=True)
-    else:
-        CLOUDINARY_STORAGE = {
-            "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
-            "API_KEY": CLOUDINARY_API_KEY,
-            "API_SECRET": CLOUDINARY_API_SECRET,
-        }
 else:
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
         },
     }
 

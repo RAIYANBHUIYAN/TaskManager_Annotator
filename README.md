@@ -21,6 +21,15 @@ This repo is connected to Vercel. **Every push to `master`** triggers a producti
 | Root directory | `frontend/` |
 | Production URL | https://frontend-eight-beta-71.vercel.app |
 
+### GitHub Actions
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `.github/workflows/frontend-ci.yml` | Changes in `frontend/` | Lint + build check |
+| `.github/workflows/backend-ci.yml` | Changes in `backend/` | Django check + migrations |
+
+**CD (deploy):** Frontend deploys via Vercel Git integration. Backend CD can be added later via Render/Railway when you push the backend.
+
 ### Required env var (Vercel dashboard)
 
 Set **Project → Settings → Environment Variables**:

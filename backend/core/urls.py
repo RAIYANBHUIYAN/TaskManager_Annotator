@@ -17,8 +17,5 @@ urlpatterns = [
     path("api/annotations/", include("annotations.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
-    # Portfolio note: Render free tier disk is ephemeral — uploads may not persist across redeploys.
+if settings.DEBUG and not settings.USE_CLOUDINARY:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

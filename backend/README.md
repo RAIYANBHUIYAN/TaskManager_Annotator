@@ -125,7 +125,20 @@ Link a Render PostgreSQL instance and set `DATABASE_URL` automatically.
 | Local dev | SQLite (`db.sqlite3`) — no install needed |
 | Render | PostgreSQL via `DATABASE_URL` |
 
-### Media uploads on Render
+### Media uploads — Cloudinary
+
+When `CLOUDINARY_*` env vars are set, annotation images upload to **Cloudinary** (persists on Render).
+Without them, files save to local `backend/media/` (fine for local dev only).
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+Or a single URL: `CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@CLOUD_NAME`
+
+### Media uploads on Render (without Cloudinary)
 
 Annotation image uploads use local disk on Render. On the **free tier**, files may be **lost on redeploy**. For production, migrate to S3/Cloudinary later.
 

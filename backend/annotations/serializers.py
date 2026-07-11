@@ -20,8 +20,8 @@ class ShapeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def validate_points(self, value):
-        if len(value) < 3:
-            raise serializers.ValidationError("A polygon must have at least 3 points.")
+        if len(value) < 2:
+            raise serializers.ValidationError("An annotation must have at least 2 points.")
         return value
 
 

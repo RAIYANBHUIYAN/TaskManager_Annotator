@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Stage, Layer, Line, Circle, Image as KonvaImage } from "react-konva";
+import { Stage, Layer, Line, Image as KonvaImage } from "react-konva";
 import type Konva from "konva";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,7 +19,9 @@ interface AnnotationCanvasProps {
 }
 
 const CANVAS_SIZE = 640;
-const CLOSE_THRESHOLD = 12;
+const MIN_IMAGE_POINT_DIST = 2;
+const MIN_POINTS_TO_SAVE = 3;
+const PEN_STROKE_WIDTH = 2.5;
 
 function useImage(src: string): [HTMLImageElement | null, number, number, boolean, boolean] {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -69,7 +71,9 @@ function useImage(src: string): [HTMLImageElement | null, number, number, boolea
 }
 
 function getScale(naturalW: number, naturalH: number) {
-  if (!naturalW || !naturalH) return { scale: 1, offsetX: 0, offsetY: 0, displayW: CANVAS_SIZE, displayH: CANVAS_SIZE };
+  if (!naturalW || !naturalH) {
+    return { scale: 1, offsetX: 0, offsetY: 0, displayW: CANVAS_SIZE, displayH: CANVAS_SIZE };
+  }
   const scale = Math.min(CANVAS_SIZE / naturalW, CANVAS_SIZE / naturalH);
   const displayW = naturalW * scale;
   const displayH = naturalH * scale;
@@ -103,6 +107,54 @@ function toStageCoords(
   };
 }
 
+function isInsideImage(
+  pos: { x: number; y: number },
+  offsetX: number,
+  offsetY: number,
+  displayW: number,
+  displayH: number,
+): boolean {
+  return (
+    pos.x >= offsetX &&
+    pos.y >= offsetY &&
+    pos.x <= offsetX + displayW &&
+    pos.y <= offsetY + displayH
+  );
+}
+
+function simplifyPoints(points: Point[], minDist: number): Point[] {
+  if (points.length <= 2) return points;
+
+  const simplified: Point[] = [points[0]];
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = simplified[simplified.length - 1];
+    const dist = Math.hypot(points[i].x - prev.x, points[i].y - prev.y);
+    if (dist >= minDist) {
+      simplified.push(points[i]);
+    }
+  }
+
+  const last = points[points.length - 1];
+  const tail = simplified[simplified.length - 1];
+  if (tail.x !== last.x || tail.y !== last.y) {
+    simplified.push(last);
+  }
+
+  return simplified;
+}
+
+function pointsToFlatStage(
+  points: Point[],
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+): number[] {
+  return points.flatMap((p) => {
+    const s = toStageCoords(p, scale, offsetX, offsetY);
+    return [s.x, s.y];
+  });
+}
+
 export default function AnnotationCanvas({
   imageId,
   imageUrl,
@@ -111,15 +163,29 @@ export default function AnnotationCanvas({
 }: AnnotationCanvasProps) {
   const queryClient = useQueryClient();
   const stageRef = useRef<Konva.Stage>(null);
-  const skipNextClickRef = useRef(false);
+  const draftLineRef = useRef<Konva.Line>(null);
+  const isDrawingRef = useRef(false);
+  const draftPointsRef = useRef<Point[]>([]);
+  const transformRef = useRef({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    displayW: CANVAS_SIZE,
+    displayH: CANVAS_SIZE,
+  });
+
   const [image, naturalW, naturalH, imageLoading, imageError] = useImage(
     getMediaUrl(imageUrl, { maxWidth: 1280 }),
   );
   const { scale, offsetX, offsetY, displayW, displayH } = getScale(naturalW, naturalH);
 
-  const [draftPoints, setDraftPoints] = useState<Point[]>([]);
+  useEffect(() => {
+    transformRef.current = { scale, offsetX, offsetY, displayW, displayH };
+  }, [scale, offsetX, offsetY, displayW, displayH]);
+
   const [label, setLabel] = useState("Tumor");
   const [hideAnnotations, setHideAnnotations] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   const { data: shapes = [], isFetching: shapesFetching } = useQuery({
     queryKey: ["shapes", imageId],
@@ -133,10 +199,9 @@ export default function AnnotationCanvas({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shapes", imageId] });
       queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
-      setDraftPoints([]);
-      toast.success("Shape saved");
+      toast.success("Annotation saved");
     },
-    onError: () => toast.error("Failed to save shape"),
+    onError: () => toast.error("Failed to save annotation"),
   });
 
   const deleteMutation = useMutation({
@@ -145,58 +210,116 @@ export default function AnnotationCanvas({
       queryClient.invalidateQueries({ queryKey: ["shapes", imageId] });
       queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
       onSelectShape(null);
-      toast.success("Shape deleted");
+      toast.success("Annotation deleted");
     },
-    onError: () => toast.error("Failed to delete shape"),
+    onError: () => toast.error("Failed to delete annotation"),
   });
 
-  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (skipNextClickRef.current) {
-      skipNextClickRef.current = false;
+  const resetDraft = useCallback(() => {
+    isDrawingRef.current = false;
+    draftPointsRef.current = [];
+    const line = draftLineRef.current;
+    if (line) {
+      line.points([]);
+      line.visible(false);
+      line.getLayer()?.batchDraw();
+    }
+    setIsDrawing(false);
+  }, []);
+
+  const updateDraftLine = useCallback(() => {
+    const line = draftLineRef.current;
+    if (!line) return;
+    const { scale: s, offsetX: ox, offsetY: oy } = transformRef.current;
+    line.points(pointsToFlatStage(draftPointsRef.current, s, ox, oy));
+    line.visible(draftPointsRef.current.length > 0);
+    line.getLayer()?.batchDraw();
+  }, []);
+
+  const finishDrawing = useCallback(() => {
+    if (!isDrawingRef.current) return;
+
+    const points = simplifyPoints(draftPointsRef.current, MIN_IMAGE_POINT_DIST);
+    resetDraft();
+
+    if (points.length < MIN_POINTS_TO_SAVE) {
       return;
     }
-    if (!image) return;
+
+    createMutation.mutate(points);
+  }, [createMutation, resetDraft]);
+
+  const startDrawing = useCallback(
+    (pos: { x: number; y: number }) => {
+      const { scale: s, offsetX: ox, offsetY: oy, displayW: dw, displayH: dh } =
+        transformRef.current;
+      if (!isInsideImage(pos, ox, oy, dw, dh)) return;
+
+      isDrawingRef.current = true;
+      setIsDrawing(true);
+      onSelectShape(null);
+      draftPointsRef.current = [toImageCoords(pos.x, pos.y, s, ox, oy)];
+      updateDraftLine();
+    },
+    [onSelectShape, updateDraftLine],
+  );
+
+  const extendDrawing = useCallback(
+    (pos: { x: number; y: number }) => {
+      if (!isDrawingRef.current) return;
+
+      const { scale: s, offsetX: ox, offsetY: oy, displayW: dw, displayH: dh } =
+        transformRef.current;
+      if (!isInsideImage(pos, ox, oy, dw, dh)) {
+        finishDrawing();
+        return;
+      }
+
+      const imgPoint = toImageCoords(pos.x, pos.y, s, ox, oy);
+      const last = draftPointsRef.current[draftPointsRef.current.length - 1];
+      if (last) {
+        const dist = Math.hypot(imgPoint.x - last.x, imgPoint.y - last.y);
+        if (dist < MIN_IMAGE_POINT_DIST) return;
+      }
+
+      draftPointsRef.current.push(imgPoint);
+      updateDraftLine();
+    },
+    [finishDrawing, updateDraftLine],
+  );
+
+  const handlePointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!image || createMutation.isPending) return;
+
     const stage = e.target.getStage();
     if (!stage) return;
 
-    // Deselect if clicking empty area
-    if (e.target === stage || e.target.getClassName() === "Image") {
-      onSelectShape(null);
+    const targetClass = e.target.getClassName();
+    if (targetClass === "Line" && e.target.id()) {
+      onSelectShape(e.target.id());
+      return;
+    }
+
+    if (targetClass !== "Stage" && targetClass !== "Image") {
+      return;
     }
 
     const pos = stage.getPointerPosition();
     if (!pos) return;
 
-    // Check if within image bounds
-    if (
-      pos.x < offsetX ||
-      pos.y < offsetY ||
-      pos.x > offsetX + displayW ||
-      pos.y > offsetY + displayH
-    ) {
-      return;
-    }
-
-    const imgPoint = toImageCoords(pos.x, pos.y, scale, offsetX, offsetY);
-
-    // Close polygon if clicking near first point
-    if (draftPoints.length >= 3) {
-      const first = toStageCoords(draftPoints[0], scale, offsetX, offsetY);
-      const dist = Math.hypot(pos.x - first.x, pos.y - first.y);
-      if (dist < CLOSE_THRESHOLD) {
-        createMutation.mutate(draftPoints);
-        return;
-      }
-    }
-
-    setDraftPoints((prev) => [...prev, imgPoint]);
+    startDrawing(pos);
   };
 
-  const handleStageDblClick = () => {
-    if (draftPoints.length >= 3) {
-      skipNextClickRef.current = true;
-      createMutation.mutate(draftPoints);
-    }
+  const handlePointerMove = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+    extendDrawing(pos);
+  };
+
+  const handlePointerUp = () => {
+    finishDrawing();
   };
 
   const handleKeyDown = useCallback(
@@ -207,11 +330,11 @@ export default function AnnotationCanvas({
         }
       }
       if (e.key === "Escape") {
-        setDraftPoints([]);
+        resetDraft();
         onSelectShape(null);
       }
     },
-    [selectedShapeId, deleteMutation, onSelectShape],
+    [selectedShapeId, deleteMutation, onSelectShape, resetDraft],
   );
 
   useEffect(() => {
@@ -220,29 +343,25 @@ export default function AnnotationCanvas({
   }, [handleKeyDown]);
 
   const renderShape = (shape: Shape, isSelected: boolean) => {
-    const flatPoints = shape.points.flatMap((p) => {
-      const s = toStageCoords(p, scale, offsetX, offsetY);
-      return [s.x, s.y];
-    });
+    const flatPoints = pointsToFlatStage(shape.points, scale, offsetX, offsetY);
 
     return (
       <Line
         key={shape.id}
+        id={shape.id}
         points={flatPoints}
         closed
-        fill={isSelected ? `${shape.color}66` : `${shape.color}44`}
+        tension={0.4}
+        fill={isSelected ? `${shape.color}55` : `${shape.color}33`}
         stroke={isSelected ? "#fff" : shape.color}
         strokeWidth={isSelected ? 2.5 : 2}
-        onClick={() => onSelectShape(shape.id)}
-        onTap={() => onSelectShape(shape.id)}
+        lineCap="round"
+        lineJoin="round"
+        perfectDrawEnabled={false}
+        hitStrokeWidth={14}
       />
     );
   };
-
-  const draftStagePoints = draftPoints.flatMap((p) => {
-    const s = toStageCoords(p, scale, offsetX, offsetY);
-    return [s.x, s.y];
-  });
 
   if (imageLoading) {
     return (
@@ -286,16 +405,18 @@ export default function AnnotationCanvas({
           />
           Hide Annotations
         </label>
-        {draftPoints.length > 0 && (
+        {isDrawing && (
           <button
-            onClick={() => setDraftPoints([])}
+            type="button"
+            onClick={resetDraft}
             className="text-xs text-rose-600 hover:text-rose-700"
           >
-            Cancel drawing
+            Cancel stroke
           </button>
         )}
         {selectedShapeId && (
           <button
+            type="button"
             onClick={() => deleteMutation.mutate(selectedShapeId)}
             className="text-xs px-3 py-1 bg-rose-600 text-white rounded-lg hover:bg-rose-700"
           >
@@ -304,17 +425,22 @@ export default function AnnotationCanvas({
         )}
       </div>
 
-      <div className="inline-block rounded-xl overflow-hidden border border-slate-700 shadow-xl">
+      <div className="inline-block rounded-xl overflow-hidden border border-slate-700 shadow-xl touch-none">
         <Stage
           ref={stageRef}
           width={CANVAS_SIZE}
           height={CANVAS_SIZE}
           pixelRatio={1}
-          onClick={handleStageClick}
-          onDblClick={handleStageDblClick}
-          className="bg-black cursor-crosshair"
+          onMouseDown={handlePointerDown}
+          onMousemove={handlePointerMove}
+          onMouseup={handlePointerUp}
+          onMouseleave={handlePointerUp}
+          onTouchStart={handlePointerDown}
+          onTouchMove={handlePointerMove}
+          onTouchEnd={handlePointerUp}
+          className={`bg-black ${isDrawing ? "cursor-crosshair" : "cursor-cell"}`}
         >
-          <Layer>
+          <Layer listening={false}>
             {image && (
               <KonvaImage
                 image={image}
@@ -324,41 +450,30 @@ export default function AnnotationCanvas({
                 height={displayH}
               />
             )}
+          </Layer>
+          <Layer>
             {!hideAnnotations &&
-              shapes.map((shape) =>
-                renderShape(shape, shape.id === selectedShapeId),
-              )}
-            {draftPoints.length > 0 && (
-              <>
-                <Line
-                  points={draftStagePoints}
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dash={[6, 4]}
-                />
-                {draftPoints.map((p, i) => {
-                  const s = toStageCoords(p, scale, offsetX, offsetY);
-                  return (
-                    <Circle
-                      key={i}
-                      x={s.x}
-                      y={s.y}
-                      radius={5}
-                      fill="#3b82f6"
-                      stroke="#fff"
-                      strokeWidth={1}
-                    />
-                  );
-                })}
-              </>
-            )}
+              shapes.map((shape) => renderShape(shape, shape.id === selectedShapeId))}
+          </Layer>
+          <Layer listening={false}>
+            <Line
+              ref={draftLineRef}
+              stroke="#3b82f6"
+              strokeWidth={PEN_STROKE_WIDTH}
+              lineCap="round"
+              lineJoin="round"
+              tension={0.5}
+              closed={false}
+              visible={false}
+              perfectDrawEnabled={false}
+            />
           </Layer>
         </Stage>
       </div>
 
       <p className="text-xs text-slate-500">
-        Click to add vertices · Double-click or click first point to close &amp; save ·
-        Select a shape and press Delete to remove
+        Click and drag to draw · Release to save · Click a shape to select · Press Delete to
+        remove · Esc to cancel
       </p>
     </div>
   );

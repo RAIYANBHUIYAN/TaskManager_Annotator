@@ -14,7 +14,7 @@ export default function ShapeList({ shapes, selectedId, onSelect, onDelete }: Sh
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h3 className="text-sm font-semibold text-slate-800 mb-2">Shapes</h3>
-        <p className="text-xs text-slate-400">No annotations yet. Draw a polygon on the canvas.</p>
+        <p className="text-xs text-slate-400">No annotations yet. Draw on the canvas with your mouse or finger.</p>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export default function ShapeList({ shapes, selectedId, onSelect, onDelete }: Sh
                 style={{ backgroundColor: shape.color }}
               />
               <span className="text-sm text-slate-700 truncate">
-                {shape.label || `Polygon ${i + 1}`}
+                {shape.label || `Stroke ${i + 1}`}
               </span>
               <span className="text-xs text-slate-400">{shape.points.length} pts</span>
             </div>

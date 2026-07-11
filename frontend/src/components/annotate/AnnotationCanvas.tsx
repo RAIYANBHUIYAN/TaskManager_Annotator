@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { createShape, deleteShape, fetchShapes } from "@/lib/api";
+import { colorWithAlpha } from "@/lib/annotationUtils";
 import { getMediaUrl } from "@/lib/auth";
 import type { Point, Shape } from "@/lib/types";
 import { DEFAULT_SHAPE_COLOR } from "@/lib/types";
@@ -196,12 +197,32 @@ export default function AnnotationCanvas({
   const createMutation = useMutation({
     mutationFn: (points: Point[]) =>
       createShape(imageId, { points, label, color: DEFAULT_SHAPE_COLOR }),
+    onMutate: async (points) => {
+      await queryClient.cancelQueries({ queryKey: ["shapes", imageId] });
+      const previous = queryClient.getQueryData<Shape[]>(["shapes", imageId]);
+      const optimistic: Shape = {
+        id: `temp-${Date.now()}`,
+        points,
+        label,
+        color: DEFAULT_SHAPE_COLOR,
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Shape[]>(["shapes", imageId], (old = []) => [...old, optimistic]);
+      return { previous };
+    },
+    onError: (_error, _points, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["shapes", imageId], context.previous);
+      }
+      toast.error("Failed to save annotation");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shapes", imageId] });
-      queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
       toast.success("Annotation saved");
     },
-    onError: () => toast.error("Failed to save annotation"),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["shapes", imageId] });
+      queryClient.invalidateQueries({ queryKey: ["annotation-images"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -231,8 +252,11 @@ export default function AnnotationCanvas({
     const line = draftLineRef.current;
     if (!line) return;
     const { scale: s, offsetX: ox, offsetY: oy } = transformRef.current;
+    const pointCount = draftPointsRef.current.length;
     line.points(pointsToFlatStage(draftPointsRef.current, s, ox, oy));
-    line.visible(draftPointsRef.current.length > 0);
+    line.visible(pointCount > 0);
+    line.closed(pointCount >= 3);
+    line.fill(pointCount >= 3 ? "rgba(59, 130, 246, 0.35)" : undefined);
     line.getLayer()?.batchDraw();
   }, []);
 
@@ -352,9 +376,9 @@ export default function AnnotationCanvas({
         points={flatPoints}
         closed
         tension={0.4}
-        fill={isSelected ? `${shape.color}55` : `${shape.color}33`}
+        fill={colorWithAlpha(shape.color, isSelected ? 0.55 : 0.42)}
         stroke={isSelected ? "#fff" : shape.color}
-        strokeWidth={isSelected ? 2.5 : 2}
+        strokeWidth={isSelected ? 3 : 2.5}
         lineCap="round"
         lineJoin="round"
         perfectDrawEnabled={false}

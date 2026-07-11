@@ -4,8 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import AnnotatedThumbnail from "@/components/annotate/AnnotatedThumbnail";
 import { deleteImage, uploadImage } from "@/lib/api";
-import { getMediaUrl } from "@/lib/auth";
 import type { AnnotationImage } from "@/lib/types";
 
 interface ImageStripProps {
@@ -134,12 +134,7 @@ export default function ImageStrip({
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={getMediaUrl(img.image, { maxWidth: 256 })}
-                  alt="Annotation thumbnail"
-                  className="w-full h-full object-cover"
-                />
+                <AnnotatedThumbnail image={img} />
               </button>
               <button
                 onClick={(e) => {

@@ -36,7 +36,7 @@ App runs at `http://localhost:3000`.
 - **State:** Zustand (auth + date), React Query (server data)
 - **API:** Axios client with JWT refresh (`src/lib/api.ts`)
 - **DnD:** `@dnd-kit/core` kanban board
-- **Canvas:** `react-konva` polygon annotations
+- **Canvas:** `react-konva` freehand pen annotations with highlighted saved regions
 
 ## Environment
 
@@ -52,7 +52,7 @@ Set `NEXT_PUBLIC_API_URL` to your production API URL and add your Vercel domain 
 
 ### Canvas coordinate scaling
 
-Polygon points are stored in **original image pixel coordinates**. The canvas applies uniform scale + offset so annotations stay accurate at any display size.
+Polygon points are stored in **original image pixel coordinates**. The canvas applies uniform scale + offset so annotations stay accurate at any display size. Freehand strokes are simplified and saved as closed regions with visible fill overlays in the canvas, sidebar, and thumbnails.
 
 ### Drag-and-drop state sync
 

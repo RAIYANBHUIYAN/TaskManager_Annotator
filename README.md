@@ -42,6 +42,150 @@ backend/           Django 5.2 · DRF · JWT · PostgreSQL (prod) · SQLite (loca
 render.yaml        Render Blueprint (PostgreSQL + web service)
 ```
 
+### 📊 Architecture diagrams
+
+Source files: [`docs/architecture/diagrams/`](docs/architecture/diagrams/)
+
+#### High-level system
+
+```mermaid
+flowchart TB
+  subgraph client [Browser]
+    UI[Next.js Frontend]
+  end
+
+  subgraph vercel [Vercel]
+    FE[Static + SSR Shell]
+  end
+
+  subgraph render [Render]
+    API[Django REST API]
+    PG[(PostgreSQL)]
+  end
+
+  subgraph cloudinary [Cloudinary]
+    CDN[Image CDN]
+  end
+
+  UI --> FE
+  FE -->|HTTPS + JWT| API
+  API --> PG
+  API -->|upload/read| CDN
+```
+
+#### Database models
+
+```mermaid
+erDiagram
+  User ||--o{ Task : owns
+  User ||--o{ Tag : owns
+  User ||--o{ AnnotationImage : owns
+  Task }o--o{ Tag : has
+  AnnotationImage ||--o{ Shape : contains
+
+  User {
+    uuid id PK
+    string email UK
+    string password
+    string first_name
+    string last_name
+    boolean is_active
+    datetime date_joined
+  }
+
+  Task {
+    uuid id PK
+    string title
+    string description
+    string status
+    string priority
+    date due_date
+    uuid user_id FK
+    datetime created_at
+    datetime updated_at
+  }
+
+  Tag {
+    uuid id PK
+    string name
+    uuid user_id FK
+  }
+
+  AnnotationImage {
+    uuid id PK
+    file image
+    datetime uploaded_at
+    uuid user_id FK
+  }
+
+  Shape {
+    uuid id PK
+    json points
+    string label
+    string color
+    uuid image_id FK
+    datetime created_at
+  }
+```
+
+#### Frontend state management (two layers)
+
+```mermaid
+flowchart LR
+  subgraph zustand [Zustand - Client UI State]
+    Auth["authStore - user session"]
+    Date["dateStore - selected date"]
+  end
+
+  subgraph reactquery [React Query - Server State]
+    Tasks[tasks query]
+    Tags[tags query]
+    Images[annotation-images query]
+    Shapes[shapes query]
+  end
+
+  subgraph pages [Pages and components]
+    TasksPage["/tasks Board"]
+    AnnotatePage["/annotate canvas"]
+    LoginPage["/login"]
+  end
+
+  subgraph api [Axios api.ts]
+    HTTP["HTTP client - JWT + refresh"]
+  end
+
+  Auth --> LoginPage
+  Date --> TasksPage
+  Tasks --> TasksPage
+  Tags --> TasksPage
+  Images --> AnnotatePage
+  Shapes --> AnnotatePage
+
+  Tasks --> HTTP
+  Tags --> HTTP
+  Images --> HTTP
+  Shapes --> HTTP
+  Auth --> HTTP
+```
+
+#### CI/CD pipeline
+
+```mermaid
+flowchart LR
+  Dev[Developer] -->|git push master| GitHub[GitHub repo]
+
+  GitHub --> GHA[GitHub Actions]
+  GitHub --> Vercel[Vercel auto-deploy]
+  GitHub --> Render[Render auto-deploy]
+
+  GHA --> FE_CI["frontend-ci.yml - lint + build"]
+  GHA --> BE_CI["backend-ci.yml - check + migrate"]
+
+  Vercel --> FE_Live[frontend-eight-beta-71.vercel.app]
+  Render --> API_Live[taskflow-api-ub80.onrender.com]
+  Render --> DB[(taskflow-db PostgreSQL)]
+```
+
 ### 📁 Monorepo layout
 
 ```

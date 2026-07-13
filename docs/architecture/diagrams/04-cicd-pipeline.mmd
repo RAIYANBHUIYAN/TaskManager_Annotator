@@ -1,0 +1,13 @@
+flowchart LR
+  Dev[Developer] -->|git push master| GitHub[GitHub repo]
+
+  GitHub --> GHA[GitHub Actions]
+  GitHub --> Vercel[Vercel auto-deploy]
+  GitHub --> Render[Render auto-deploy]
+
+  GHA --> FE_CI["frontend-ci.yml - lint + build"]
+  GHA --> BE_CI["backend-ci.yml - check + migrate"]
+
+  Vercel --> FE_Live[frontend-eight-beta-71.vercel.app]
+  Render --> API_Live[taskflow-api-ub80.onrender.com]
+  Render --> DB[(taskflow-db PostgreSQL)]

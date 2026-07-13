@@ -1,0 +1,22 @@
+flowchart TB
+  subgraph client [Browser]
+    UI[Next.js Frontend]
+  end
+
+  subgraph vercel [Vercel]
+    FE[Static + SSR Shell]
+  end
+
+  subgraph render [Render]
+    API[Django REST API]
+    PG[(PostgreSQL)]
+  end
+
+  subgraph cloudinary [Cloudinary]
+    CDN[Image CDN]
+  end
+
+  UI --> FE
+  FE -->|HTTPS + JWT| API
+  API --> PG
+  API -->|upload/read| CDN

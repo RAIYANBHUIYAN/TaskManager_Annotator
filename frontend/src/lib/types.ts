@@ -4,6 +4,20 @@ export interface User {
   first_name: string;
   last_name: string;
   date_joined: string;
+  is_staff: boolean;
+}
+
+export interface AdminStats {
+  total_users: number;
+}
+
+export interface AdminUsersResponse {
+  total_users: number;
+  users: User[];
+}
+
+export interface AdminLoginResponse extends AuthTokens {
+  user: User;
 }
 
 export interface AuthTokens {

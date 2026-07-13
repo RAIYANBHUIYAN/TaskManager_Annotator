@@ -44,6 +44,7 @@ Upload images, draw freehand polygon regions, assign class labels, and review sa
 ### ✅ Complete & working
 
 - **Authentication** — Email + JWT (sign up, login, refresh, protected routes)
+- **Admin panel** — Separate `/admin` dashboard to view user count and delete accounts
 - **Tasks** — Kanban board with drag-and-drop, date filter, tags, priorities, due dates
 - **Image upload** — Cloudinary storage in production (persistent across redeploys)
 - **Annotation tool** — Smooth pen-style freehand drawing with highlighted saved regions
@@ -261,6 +262,7 @@ pip install -r requirements.txt
 cp .env.example .env             # optional: Cloudinary keys for image upload
 python manage.py migrate
 python manage.py seed_demo_user
+python manage.py seed_admin_user
 python manage.py runserver 8001
 ```
 
@@ -276,6 +278,15 @@ npm run dev
 ```
 
 App: `http://localhost:3000`
+
+**Admin panel (local):** `http://localhost:3000/admin/login`
+
+| Field | Value |
+|-------|-------|
+| Username | `lex` |
+| Password | `admin@lex` |
+
+Run `python manage.py seed_admin_user` in the backend if the admin account does not exist yet.
 
 **`frontend/.env.local`**
 
@@ -334,6 +345,10 @@ CLOUDINARY_API_SECRET=your_api_secret
 | POST | `/api/auth/login/` | JWT login |
 | POST | `/api/auth/refresh/` | Refresh token |
 | GET | `/api/auth/me/` | Current user |
+| POST | `/api/admin/login/` | Admin login (username + password) |
+| GET | `/api/admin/stats/` | Total user count (staff only) |
+| GET | `/api/admin/users/` | List all users (staff only) |
+| DELETE | `/api/admin/users/:id/` | Delete a user (staff only) |
 | GET/POST | `/api/tasks/?date=YYYY-MM-DD` | Tasks for a date |
 | PATCH/DELETE | `/api/tasks/:id/` | Update/delete task |
 | GET/POST | `/api/tags/` | Tags |

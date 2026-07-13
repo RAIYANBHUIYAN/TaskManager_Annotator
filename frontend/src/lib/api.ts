@@ -10,6 +10,9 @@ import {
 import type {
   AnnotationImage,
   AuthTokens,
+  AdminLoginResponse,
+  AdminStats,
+  AdminUsersResponse,
   PaginatedResponse,
   RegisterResponse,
   Shape,
@@ -36,6 +39,7 @@ const PUBLIC_AUTH_PATHS = [
   "/api/auth/login/",
   "/api/auth/register/",
   "/api/auth/refresh/",
+  "/api/admin/login/",
 ];
 
 function isPublicAuthRequest(url?: string): boolean {
@@ -65,6 +69,7 @@ api.interceptors.response.use(
       if (
         original.url?.includes("/api/auth/login") ||
         original.url?.includes("/api/auth/register") ||
+        original.url?.includes("/api/admin/login") ||
         original.url?.includes("/api/auth/refresh")
       ) {
         return Promise.reject(error);
@@ -144,6 +149,27 @@ export async function fetchMe(): Promise<User> {
 
 export function logout(): void {
   clearTokens();
+}
+
+export async function adminLogin(username: string, password: string): Promise<AdminLoginResponse> {
+  clearTokens();
+  const { data } = await api.post<AdminLoginResponse>("/api/admin/login/", { username, password });
+  setTokens(data.access, data.refresh);
+  return data;
+}
+
+export async function fetchAdminStats(): Promise<AdminStats> {
+  const { data } = await api.get<AdminStats>("/api/admin/stats/");
+  return data;
+}
+
+export async function fetchAdminUsers(): Promise<AdminUsersResponse> {
+  const { data } = await api.get<AdminUsersResponse>("/api/admin/users/");
+  return data;
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+  await api.delete(`/api/admin/users/${userId}/`);
 }
 
 async function fetchAllPages<T>(

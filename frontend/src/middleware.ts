@@ -17,6 +17,24 @@ function isAccessTokenValid(token: string): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const isAdminProtected =
+    pathname === "/admin" ||
+    (pathname.startsWith("/admin/") && !pathname.startsWith("/admin/login"));
+
+  if (isAdminProtected) {
+    const accessToken = request.cookies.get("access_token")?.value;
+    if (!accessToken || !isAccessTokenValid(accessToken)) {
+      const loginUrl = new URL("/admin/login", request.url);
+      const response = NextResponse.redirect(loginUrl);
+      if (accessToken && !isAccessTokenValid(accessToken)) {
+        response.cookies.delete("access_token");
+      }
+      return response;
+    }
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
@@ -39,5 +57,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/tasks", "/tasks/:path*", "/annotate", "/annotate/:path*"],
+  matcher: ["/tasks", "/tasks/:path*", "/annotate", "/annotate/:path*", "/admin", "/admin/:path*"],
 };

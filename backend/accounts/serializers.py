@@ -13,7 +13,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "date_joined"]
+        fields = ["id", "email", "first_name", "last_name", "date_joined", "is_staff"]
         read_only_fields = fields
 
 

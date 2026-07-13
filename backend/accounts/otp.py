@@ -21,6 +21,9 @@ class EmailDeliveryError(Exception):
 def _format_email_delivery_error(exc: Exception) -> str:
     message = str(exc)
 
+    if "error code: 1010" in message or "error 1010" in message.lower():
+        return "Email service blocked the request (missing client headers). This has been fixed — redeploy the backend."
+
     if "only send testing emails to your own email address" in message:
         match = re.search(r"your own email address \(([^)]+)\)", message)
         allowed = match.group(1) if match else "your Resend account email"

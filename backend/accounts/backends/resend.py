@@ -8,6 +8,8 @@ from django.core.mail.backends.base import BaseEmailBackend
 
 logger = logging.getLogger(__name__)
 
+RESEND_USER_AGENT = "TaskFlow/1.0 (Django; +https://github.com/RAIYANBHUIYAN/TaskManager_Annotator)"
+
 
 class ResendEmailBackend(BaseEmailBackend):
     """Send email via Resend HTTP API (https://resend.com)."""
@@ -33,6 +35,7 @@ class ResendEmailBackend(BaseEmailBackend):
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
+                    "User-Agent": RESEND_USER_AGENT,
                 },
                 method="POST",
             )

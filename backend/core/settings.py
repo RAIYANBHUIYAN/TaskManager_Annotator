@@ -186,13 +186,25 @@ SIMPLE_JWT = {
 }
 
 # Email (OTP 2FA)
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend",
-)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "TaskFlow <noreply@taskflow.local>")
+
+if RESEND_API_KEY:
+    EMAIL_BACKEND = "accounts.backends.resend.ResendEmailBackend"
+    if DEFAULT_FROM_EMAIL == "TaskFlow <noreply@taskflow.local>":
+        DEFAULT_FROM_EMAIL = "TaskFlow <onboarding@resend.dev>"
+elif EMAIL_HOST and EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = os.getenv(
+        "EMAIL_BACKEND",
+        "django.core.mail.backends.smtp.EmailBackend",
+    )
+else:
+    EMAIL_BACKEND = os.getenv(
+        "EMAIL_BACKEND",
+        "django.core.mail.backends.console.EmailBackend",
+    )

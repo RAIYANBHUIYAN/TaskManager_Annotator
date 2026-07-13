@@ -5,7 +5,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .models import User
-from .otp import OTP_EXPIRY_MINUTES, create_login_otp, resend_login_otp, verify_login_otp
+from .otp import (
+    EmailDeliveryError,
+    OTP_EXPIRY_MINUTES,
+    create_login_otp,
+    resend_login_otp,
+    verify_login_otp,
+)
 from .serializers import (
     LoginSerializer,
     RegisterSerializer,
@@ -35,7 +41,10 @@ class LoginView(APIView):
             return Response(generic_error, status=status.HTTP_400_BAD_REQUEST)
 
         if not user.is_active:
-            otp = create_login_otp(user, purpose="signup")
+            try:
+                otp = create_login_otp(user, purpose="signup")
+            except EmailDeliveryError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             return Response(
                 {
                     "requires_otp": True,
@@ -46,7 +55,10 @@ class LoginView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        otp = create_login_otp(user, purpose="login")
+        try:
+            otp = create_login_otp(user, purpose="login")
+        except EmailDeliveryError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(
             {
                 "requires_otp": True,
@@ -97,13 +109,40 @@ class ResendOTPView(APIView):
         serializer = ResendOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if not resend_login_otp(str(serializer.validated_data["challenge_token"])):
+        try:
+            sent = resend_login_otp(str(serializer.validated_data["challenge_token"]))
+        except EmailDeliveryError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if not sent:
             return Response(
                 {"detail": "Verification session expired. Please try again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         return Response({"detail": "A new verification code has been sent."})
+
+
+def _register_user_from_validated(validated):
+    email = validated["email"].lower().strip()
+    pending_user = User.objects.filter(email__iexact=email, is_active=False).first()
+
+    if pending_user:
+        pending_user.set_password(validated["password"])
+        pending_user.first_name = validated.get("first_name", "")
+        pending_user.last_name = validated.get("last_name", "")
+        pending_user.save(update_fields=["password", "first_name", "last_name"])
+        return pending_user, False
+
+    user = User.objects.create_user(
+        email=email,
+        password=validated["password"],
+        first_name=validated.get("first_name", ""),
+        last_name=validated.get("last_name", ""),
+    )
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    return user, True
 
 
 class RegisterView(generics.CreateAPIView):
@@ -115,23 +154,15 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         validated = serializer.validated_data
-        email = validated["email"].lower().strip()
-        pending_user = User.objects.filter(email__iexact=email, is_active=False).first()
+        user, created = _register_user_from_validated(validated)
 
-        if pending_user:
-            pending_user.set_password(validated["password"])
-            pending_user.first_name = validated.get("first_name", "")
-            pending_user.last_name = validated.get("last_name", "")
-            pending_user.save(
-                update_fields=["password", "first_name", "last_name"],
-            )
-            user = pending_user
-        else:
-            user = serializer.save()
-            user.is_active = False
-            user.save(update_fields=["is_active"])
+        try:
+            otp = create_login_otp(user, purpose="signup")
+        except EmailDeliveryError as exc:
+            if created:
+                user.delete()
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        otp = create_login_otp(user, purpose="signup")
         return Response(
             {
                 "requires_otp": True,

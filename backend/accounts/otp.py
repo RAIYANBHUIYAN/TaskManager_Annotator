@@ -12,6 +12,10 @@ OTP_EXPIRY_MINUTES = 10
 MAX_OTP_ATTEMPTS = 5
 
 
+class EmailDeliveryError(Exception):
+    """Raised when OTP email cannot be delivered."""
+
+
 def generate_otp_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
@@ -30,13 +34,18 @@ def send_otp_email(user: User, code: str, purpose: str = "login") -> None:
         f"This code expires in {OTP_EXPIRY_MINUTES} minutes.\n"
         f"If you did not request this, you can ignore this email.\n"
     )
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        raise EmailDeliveryError(
+            "Could not send verification email. Please try again later or contact support."
+        ) from exc
 
 
 def create_login_otp(user: User, purpose: str = "login") -> LoginOTP:

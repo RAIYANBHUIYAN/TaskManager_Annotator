@@ -319,18 +319,40 @@ CSRF_TRUSTED_ORIGINS=https://frontend-eight-beta-71.vercel.app
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+```
+
+**Email OTP (required for login/signup verification)** — pick one option:
+
+**Option A — Resend (easiest on Render)**
+
+```env
+RESEND_API_KEY=re_xxxxxxxx
+DEFAULT_FROM_EMAIL=TaskFlow <onboarding@resend.dev>
+```
+
+1. Create a free account at [resend.com](https://resend.com)
+2. Copy your API key from the dashboard
+3. Add both env vars above on Render → `taskflow-api` → Environment
+4. Redeploy the backend
+
+> Without a verified domain, Resend only delivers to the email you used to sign up on Resend. To send OTPs to any user, verify a domain in Resend **or** use Gmail SMTP below.
+
+**Option B — Gmail SMTP (sends to any address)**
+
+```env
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your_smtp_user
-EMAIL_HOST_PASSWORD=your_smtp_password
-DEFAULT_FROM_EMAIL=TaskFlow <noreply@yourdomain.com>
+EMAIL_HOST_USER=your@gmail.com
+EMAIL_HOST_PASSWORD=your_16_char_app_password
+DEFAULT_FROM_EMAIL=TaskFlow <your@gmail.com>
 ```
+
+Use a [Gmail App Password](https://support.google.com/accounts/answer/185833) (not your normal Gmail password).
 
 `DATABASE_URL` and `SECRET_KEY` are set automatically by the Blueprint.
 
-> **Email OTP (2FA):** Login sends a 6-digit code to the user's email. Without SMTP configured, OTP emails will not deliver in production. For local dev, the default console backend prints codes in the Django terminal.
+> **Local dev:** OTP codes print in the Django terminal (console backend). They are **not** sent to real inboxes unless you configure Resend or SMTP locally.
 
 ---
 

@@ -16,13 +16,19 @@ def generate_otp_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
-def send_login_otp_email(user: User, code: str) -> None:
-    subject = "Your TaskFlow sign-in code"
+def send_otp_email(user: User, code: str, purpose: str = "login") -> None:
+    if purpose == "signup":
+        subject = "Verify your TaskFlow email"
+        intro = "Use this code to verify your email and activate your account:"
+    else:
+        subject = "Your TaskFlow sign-in code"
+        intro = "Your TaskFlow sign-in verification code is:"
+
     message = (
         f"Hi,\n\n"
-        f"Your TaskFlow verification code is: {code}\n\n"
+        f"{intro} {code}\n\n"
         f"This code expires in {OTP_EXPIRY_MINUTES} minutes.\n"
-        f"If you did not try to sign in, you can ignore this email.\n"
+        f"If you did not request this, you can ignore this email.\n"
     )
     send_mail(
         subject,
@@ -33,7 +39,7 @@ def send_login_otp_email(user: User, code: str) -> None:
     )
 
 
-def create_login_otp(user: User) -> LoginOTP:
+def create_login_otp(user: User, purpose: str = "login") -> LoginOTP:
     LoginOTP.objects.filter(user=user).delete()
     code = generate_otp_code()
     otp = LoginOTP.objects.create(
@@ -41,7 +47,7 @@ def create_login_otp(user: User) -> LoginOTP:
         code_hash=make_password(code),
         expires_at=timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES),
     )
-    send_login_otp_email(user, code)
+    send_otp_email(user, code, purpose=purpose)
     return otp
 
 
@@ -86,5 +92,6 @@ def resend_login_otp(challenge_token: str) -> bool:
     otp.code_hash = make_password(code)
     otp.attempts = 0
     otp.save(update_fields=["code_hash", "attempts"])
-    send_login_otp_email(otp.user, code)
+    purpose = "signup" if not otp.user.is_active else "login"
+    send_otp_email(otp.user, code, purpose=purpose)
     return True

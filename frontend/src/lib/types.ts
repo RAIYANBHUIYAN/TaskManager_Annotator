@@ -18,7 +18,7 @@ export interface LoginChallengeResponse {
   expires_in: number;
 }
 
-export interface RegisterResponse extends AuthTokens {
+export interface VerifyOTPResponse extends AuthTokens {
   user: User;
 }
 

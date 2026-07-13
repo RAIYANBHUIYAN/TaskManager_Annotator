@@ -31,10 +31,22 @@ class LoginView(APIView):
         except User.DoesNotExist:
             return Response(generic_error, status=status.HTTP_400_BAD_REQUEST)
 
-        if not user.check_password(password) or not user.is_active:
+        if not user.check_password(password):
             return Response(generic_error, status=status.HTTP_400_BAD_REQUEST)
 
-        otp = create_login_otp(user)
+        if not user.is_active:
+            otp = create_login_otp(user, purpose="signup")
+            return Response(
+                {
+                    "requires_otp": True,
+                    "challenge_token": str(otp.challenge_token),
+                    "email": user.email,
+                    "expires_in": OTP_EXPIRY_MINUTES * 60,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        otp = create_login_otp(user, purpose="login")
         return Response(
             {
                 "requires_otp": True,
@@ -63,11 +75,16 @@ class VerifyOTPView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+
         refresh = RefreshToken.for_user(user)
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
+                "user": UserSerializer(user).data,
             },
             status=status.HTTP_200_OK,
         )
@@ -82,7 +99,7 @@ class ResendOTPView(APIView):
 
         if not resend_login_otp(str(serializer.validated_data["challenge_token"])):
             return Response(
-                {"detail": "Verification session expired. Please sign in again."},
+                {"detail": "Verification session expired. Please try again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -96,13 +113,31 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        refresh = RefreshToken.for_user(user)
+
+        validated = serializer.validated_data
+        email = validated["email"].lower().strip()
+        pending_user = User.objects.filter(email__iexact=email, is_active=False).first()
+
+        if pending_user:
+            pending_user.set_password(validated["password"])
+            pending_user.first_name = validated.get("first_name", "")
+            pending_user.last_name = validated.get("last_name", "")
+            pending_user.save(
+                update_fields=["password", "first_name", "last_name"],
+            )
+            user = pending_user
+        else:
+            user = serializer.save()
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+
+        otp = create_login_otp(user, purpose="signup")
         return Response(
             {
-                "user": UserSerializer(user).data,
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
+                "requires_otp": True,
+                "challenge_token": str(otp.challenge_token),
+                "email": user.email,
+                "expires_in": OTP_EXPIRY_MINUTES * 60,
             },
             status=status.HTTP_201_CREATED,
         )

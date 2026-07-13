@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import axios from "axios";
 
 import PasswordInput from "@/components/shared/PasswordInput";
-import { fetchMe, requestLoginOtp, resendLoginOtp, verifyLoginOtp } from "@/lib/api";
+import { requestLoginOtp, resendLoginOtp, verifyLoginOtp } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
 const loginSchema = z.object({
@@ -79,10 +79,9 @@ function LoginFormContent() {
 
     setIsSubmitting(true);
     try {
-      await verifyLoginOtp(challengeToken, data.otp);
-      const user = await fetchMe();
+      const response = await verifyLoginOtp(challengeToken, data.otp);
       queryClient.clear();
-      setUser(user);
+      setUser(response.user);
       toast.success("Welcome back!");
       const redirect = searchParams.get("redirect") ?? "/tasks";
       router.push(redirect);

@@ -12,7 +12,7 @@ import type {
   AuthTokens,
   LoginChallengeResponse,
   PaginatedResponse,
-  RegisterResponse,
+  VerifyOTPResponse,
   Shape,
   Tag,
   Task,
@@ -128,10 +128,9 @@ export async function register(input: {
   password_confirm: string;
   first_name?: string;
   last_name?: string;
-}): Promise<RegisterResponse> {
+}): Promise<LoginChallengeResponse> {
   clearTokens();
-  const { data } = await api.post<RegisterResponse>("/api/auth/register/", input);
-  setTokens(data.access, data.refresh);
+  const { data } = await api.post<LoginChallengeResponse>("/api/auth/register/", input);
   return data;
 }
 
@@ -144,8 +143,8 @@ export async function requestLoginOtp(
   return data;
 }
 
-export async function verifyLoginOtp(challengeToken: string, otp: string): Promise<AuthTokens> {
-  const { data } = await api.post<AuthTokens>("/api/auth/verify-otp/", {
+export async function verifyLoginOtp(challengeToken: string, otp: string): Promise<VerifyOTPResponse> {
+  const { data } = await api.post<VerifyOTPResponse>("/api/auth/verify-otp/", {
     challenge_token: challengeToken,
     otp,
   });

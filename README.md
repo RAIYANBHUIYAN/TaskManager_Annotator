@@ -43,7 +43,7 @@ Upload images, draw freehand polygon regions, assign class labels, and review sa
 
 ### ✅ Complete & working
 
-- **Authentication** — Email + JWT with email OTP 2FA on login (sign up, verify OTP, refresh, protected routes)
+- **Authentication** — Email + JWT with email OTP on sign up and login (verify email, 2FA, refresh, protected routes)
 - **Tasks** — Kanban board with drag-and-drop, date filter, tags, priorities, due dates
 - **Image upload** — Cloudinary storage in production (persistent across redeploys)
 - **Annotation tool** — Smooth pen-style freehand drawing with highlighted saved regions
@@ -339,7 +339,7 @@ DEFAULT_FROM_EMAIL=TaskFlow <noreply@yourdomain.com>
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health/` | Health check |
-| POST | `/api/auth/register/` | Create account (returns JWT + user) |
+| POST | `/api/auth/register/` | Create inactive account, send email verification OTP |
 | POST | `/api/auth/login/` | Validate credentials, send email OTP |
 | POST | `/api/auth/verify-otp/` | Verify OTP, return JWT tokens |
 | POST | `/api/auth/resend-otp/` | Resend OTP for active login session |

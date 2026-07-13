@@ -23,6 +23,22 @@ Full-stack portfolio app: **Kanban task manager** + **freehand image annotation*
 
 ---
 
+## Screenshots
+
+### Task board
+
+Kanban columns (To Do / In Progress / Done), date navigation, and drag-and-drop status updates.
+
+![Task board](docs/screenshots/task-board.png)
+
+### Image annotation
+
+Upload images, draw freehand polygon regions, assign class labels, and review saved regions on the canvas, sidebar, and thumbnails.
+
+![Image annotation](docs/screenshots/annotation.png)
+
+---
+
 ## Current project status
 
 ### ✅ Complete & working

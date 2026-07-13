@@ -43,7 +43,7 @@ Upload images, draw freehand polygon regions, assign class labels, and review sa
 
 ### ✅ Complete & working
 
-- **Authentication** — Email + JWT (login, refresh, protected routes)
+- **Authentication** — Email + JWT (sign up, login, refresh, protected routes)
 - **Tasks** — Kanban board with drag-and-drop, date filter, tags, priorities, due dates
 - **Image upload** — Cloudinary storage in production (persistent across redeploys)
 - **Annotation tool** — Smooth pen-style freehand drawing with highlighted saved regions
@@ -330,6 +330,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health/` | Health check |
+| POST | `/api/auth/register/` | Create account (returns JWT + user) |
 | POST | `/api/auth/login/` | JWT login |
 | POST | `/api/auth/refresh/` | Refresh token |
 | GET | `/api/auth/me/` | Current user |

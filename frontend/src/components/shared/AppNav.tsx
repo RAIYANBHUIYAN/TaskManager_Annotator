@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
 
 const NAV_ITEMS = [
@@ -12,10 +13,12 @@ const NAV_ITEMS = [
 export default function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
     logout();
+    queryClient.clear();
     router.push("/login");
   };
 

@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import PasswordInput from "@/components/shared/PasswordInput";
@@ -21,6 +23,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,6 +41,7 @@ function LoginFormContent() {
     try {
       await login(data.email, data.password);
       const user = await fetchMe();
+      queryClient.clear();
       setUser(user);
       toast.success("Welcome back!");
       const redirect = searchParams.get("redirect") ?? "/tasks";
@@ -102,7 +106,14 @@ function LoginFormContent() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-indigo-600 hover:text-indigo-700 font-medium">
+              Create one
+            </Link>
+          </p>
+
+          <p className="mt-3 text-center text-xs text-slate-400">
             Demo: demo@example.com / Demo@1234
           </p>
         </div>

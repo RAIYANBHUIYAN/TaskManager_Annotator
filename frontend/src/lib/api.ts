@@ -11,6 +11,7 @@ import type {
   AnnotationImage,
   AuthTokens,
   PaginatedResponse,
+  RegisterResponse,
   Shape,
   Tag,
   Task,
@@ -48,7 +49,11 @@ api.interceptors.response.use(
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && original && !original._retry) {
-      if (original.url?.includes("/api/auth/login") || original.url?.includes("/api/auth/refresh")) {
+      if (
+        original.url?.includes("/api/auth/login") ||
+        original.url?.includes("/api/auth/register") ||
+        original.url?.includes("/api/auth/refresh")
+      ) {
         return Promise.reject(error);
       }
 
@@ -99,6 +104,18 @@ api.interceptors.response.use(
 );
 
 // Auth
+export async function register(input: {
+  email: string;
+  password: string;
+  password_confirm: string;
+  first_name?: string;
+  last_name?: string;
+}): Promise<RegisterResponse> {
+  const { data } = await api.post<RegisterResponse>("/api/auth/register/", input);
+  setTokens(data.access, data.refresh);
+  return data;
+}
+
 export async function login(email: string, password: string): Promise<AuthTokens> {
   const { data } = await api.post<AuthTokens>("/api/auth/login/", { email, password });
   setTokens(data.access, data.refresh);

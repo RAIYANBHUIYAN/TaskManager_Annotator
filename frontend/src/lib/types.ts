@@ -11,6 +11,10 @@ export interface AuthTokens {
   refresh: string;
 }
 
+export interface RegisterResponse extends AuthTokens {
+  user: User;
+}
+
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high";
 

@@ -33,10 +33,25 @@ function processQueue(token: string | null) {
   refreshQueue = [];
 }
 
+const PUBLIC_AUTH_PATHS = [
+  "/api/auth/login/",
+  "/api/auth/register/",
+  "/api/auth/verify-otp/",
+  "/api/auth/resend-otp/",
+  "/api/auth/refresh/",
+];
+
+function isPublicAuthRequest(url?: string): boolean {
+  if (!url) return false;
+  return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
+}
+
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (!isPublicAuthRequest(config.url)) {
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"];
@@ -114,6 +129,7 @@ export async function register(input: {
   first_name?: string;
   last_name?: string;
 }): Promise<RegisterResponse> {
+  clearTokens();
   const { data } = await api.post<RegisterResponse>("/api/auth/register/", input);
   setTokens(data.access, data.refresh);
   return data;
@@ -123,6 +139,7 @@ export async function requestLoginOtp(
   email: string,
   password: string,
 ): Promise<LoginChallengeResponse> {
+  clearTokens();
   const { data } = await api.post<LoginChallengeResponse>("/api/auth/login/", { email, password });
   return data;
 }

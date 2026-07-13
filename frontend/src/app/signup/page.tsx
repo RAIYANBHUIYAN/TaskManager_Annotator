@@ -35,6 +35,10 @@ function getRegisterErrorMessage(error: unknown): string {
   }
 
   const data = error.response.data as Record<string, unknown>;
+  if (typeof data.detail === "string") {
+    return data.detail;
+  }
+
   const messages: string[] = [];
 
   for (const value of Object.values(data)) {

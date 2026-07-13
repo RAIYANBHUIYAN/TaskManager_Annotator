@@ -43,7 +43,7 @@ Upload images, draw freehand polygon regions, assign class labels, and review sa
 
 ### ✅ Complete & working
 
-- **Authentication** — Email + JWT with email OTP on sign up and login (verify email, 2FA, refresh, protected routes)
+- **Authentication** — Email + JWT (sign up, login, refresh, protected routes)
 - **Tasks** — Kanban board with drag-and-drop, date filter, tags, priorities, due dates
 - **Image upload** — Cloudinary storage in production (persistent across redeploys)
 - **Annotation tool** — Smooth pen-style freehand drawing with highlighted saved regions
@@ -321,38 +321,7 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-**Email OTP (required for login/signup verification)** — pick one option:
-
-**Option A — Resend (easiest on Render)**
-
-```env
-RESEND_API_KEY=re_xxxxxxxx
-DEFAULT_FROM_EMAIL=TaskFlow <onboarding@resend.dev>
-```
-
-1. Create a free account at [resend.com](https://resend.com)
-2. Copy your API key from the dashboard
-3. Add both env vars above on Render → `taskflow-api` → Environment
-4. Redeploy the backend
-
-> Without a verified domain, Resend only delivers to the email you used to sign up on Resend. To send OTPs to any user, verify a domain in Resend **or** use Gmail SMTP below.
-
-**Option B — Gmail SMTP (sends to any address)**
-
-```env
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your@gmail.com
-EMAIL_HOST_PASSWORD=your_16_char_app_password
-DEFAULT_FROM_EMAIL=TaskFlow <your@gmail.com>
-```
-
-Use a [Gmail App Password](https://support.google.com/accounts/answer/185833) (not your normal Gmail password).
-
 `DATABASE_URL` and `SECRET_KEY` are set automatically by the Blueprint.
-
-> **Local dev:** OTP codes print in the Django terminal (console backend). They are **not** sent to real inboxes unless you configure Resend or SMTP locally.
 
 ---
 
@@ -361,10 +330,8 @@ Use a [Gmail App Password](https://support.google.com/accounts/answer/185833) (n
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health/` | Health check |
-| POST | `/api/auth/register/` | Create inactive account, send email verification OTP |
-| POST | `/api/auth/login/` | Validate credentials, send email OTP |
-| POST | `/api/auth/verify-otp/` | Verify OTP, return JWT tokens |
-| POST | `/api/auth/resend-otp/` | Resend OTP for active login session |
+| POST | `/api/auth/register/` | Create account (returns JWT + user) |
+| POST | `/api/auth/login/` | JWT login |
 | POST | `/api/auth/refresh/` | Refresh token |
 | GET | `/api/auth/me/` | Current user |
 | GET/POST | `/api/tasks/?date=YYYY-MM-DD` | Tasks for a date |

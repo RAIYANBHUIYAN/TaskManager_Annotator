@@ -10,9 +10,8 @@ import {
 import type {
   AnnotationImage,
   AuthTokens,
-  LoginChallengeResponse,
   PaginatedResponse,
-  VerifyOTPResponse,
+  RegisterResponse,
   Shape,
   Tag,
   Task,
@@ -36,8 +35,6 @@ function processQueue(token: string | null) {
 const PUBLIC_AUTH_PATHS = [
   "/api/auth/login/",
   "/api/auth/register/",
-  "/api/auth/verify-otp/",
-  "/api/auth/resend-otp/",
   "/api/auth/refresh/",
 ];
 
@@ -68,8 +65,6 @@ api.interceptors.response.use(
       if (
         original.url?.includes("/api/auth/login") ||
         original.url?.includes("/api/auth/register") ||
-        original.url?.includes("/api/auth/verify-otp") ||
-        original.url?.includes("/api/auth/resend-otp") ||
         original.url?.includes("/api/auth/refresh")
       ) {
         return Promise.reject(error);
@@ -128,32 +123,18 @@ export async function register(input: {
   password_confirm: string;
   first_name?: string;
   last_name?: string;
-}): Promise<LoginChallengeResponse> {
+}): Promise<RegisterResponse> {
   clearTokens();
-  const { data } = await api.post<LoginChallengeResponse>("/api/auth/register/", input);
-  return data;
-}
-
-export async function requestLoginOtp(
-  email: string,
-  password: string,
-): Promise<LoginChallengeResponse> {
-  clearTokens();
-  const { data } = await api.post<LoginChallengeResponse>("/api/auth/login/", { email, password });
-  return data;
-}
-
-export async function verifyLoginOtp(challengeToken: string, otp: string): Promise<VerifyOTPResponse> {
-  const { data } = await api.post<VerifyOTPResponse>("/api/auth/verify-otp/", {
-    challenge_token: challengeToken,
-    otp,
-  });
+  const { data } = await api.post<RegisterResponse>("/api/auth/register/", input);
   setTokens(data.access, data.refresh);
   return data;
 }
 
-export async function resendLoginOtp(challengeToken: string): Promise<void> {
-  await api.post("/api/auth/resend-otp/", { challenge_token: challengeToken });
+export async function login(email: string, password: string): Promise<AuthTokens> {
+  clearTokens();
+  const { data } = await api.post<AuthTokens>("/api/auth/login/", { email, password });
+  setTokens(data.access, data.refresh);
+  return data;
 }
 
 export async function fetchMe(): Promise<User> {

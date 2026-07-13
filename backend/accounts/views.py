@@ -1,148 +1,14 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import User
-from .otp import (
-    EmailDeliveryError,
-    OTP_EXPIRY_MINUTES,
-    create_login_otp,
-    resend_login_otp,
-    verify_login_otp,
-)
-from .serializers import (
-    LoginSerializer,
-    RegisterSerializer,
-    ResendOTPSerializer,
-    UserSerializer,
-    VerifyOTPSerializer,
-)
+from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer, UserSerializer
 
 
-class LoginView(APIView):
+class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        email = serializer.validated_data["email"].lower().strip()
-        password = serializer.validated_data["password"]
-        generic_error = {"detail": "Invalid email or password."}
-
-        try:
-            user = User.objects.get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response(generic_error, status=status.HTTP_400_BAD_REQUEST)
-
-        if not user.check_password(password):
-            return Response(generic_error, status=status.HTTP_400_BAD_REQUEST)
-
-        if not user.is_active:
-            try:
-                otp = create_login_otp(user, purpose="signup")
-            except EmailDeliveryError as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            return Response(
-                {
-                    "requires_otp": True,
-                    "challenge_token": str(otp.challenge_token),
-                    "email": user.email,
-                    "expires_in": OTP_EXPIRY_MINUTES * 60,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        try:
-            otp = create_login_otp(user, purpose="login")
-        except EmailDeliveryError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        return Response(
-            {
-                "requires_otp": True,
-                "challenge_token": str(otp.challenge_token),
-                "email": user.email,
-                "expires_in": OTP_EXPIRY_MINUTES * 60,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class VerifyOTPView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        serializer = VerifyOTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        user = verify_login_otp(
-            str(serializer.validated_data["challenge_token"]),
-            serializer.validated_data["otp"],
-        )
-        if not user:
-            return Response(
-                {"detail": "Invalid or expired verification code."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not user.is_active:
-            user.is_active = True
-            user.save(update_fields=["is_active"])
-
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class ResendOTPView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        serializer = ResendOTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            sent = resend_login_otp(str(serializer.validated_data["challenge_token"]))
-        except EmailDeliveryError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        if not sent:
-            return Response(
-                {"detail": "Verification session expired. Please try again."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return Response({"detail": "A new verification code has been sent."})
-
-
-def _register_user_from_validated(validated):
-    email = validated["email"].lower().strip()
-    pending_user = User.objects.filter(email__iexact=email, is_active=False).first()
-
-    if pending_user:
-        pending_user.set_password(validated["password"])
-        pending_user.first_name = validated.get("first_name", "")
-        pending_user.last_name = validated.get("last_name", "")
-        pending_user.save(update_fields=["password", "first_name", "last_name"])
-        return pending_user, False
-
-    user = User.objects.create_user(
-        email=email,
-        password=validated["password"],
-        first_name=validated.get("first_name", ""),
-        last_name=validated.get("last_name", ""),
-    )
-    user.is_active = False
-    user.save(update_fields=["is_active"])
-    return user, True
+    serializer_class = EmailTokenObtainPairSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -152,23 +18,13 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        validated = serializer.validated_data
-        user, created = _register_user_from_validated(validated)
-
-        try:
-            otp = create_login_otp(user, purpose="signup")
-        except EmailDeliveryError as exc:
-            if created:
-                user.delete()
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
+        user = serializer.save()
+        refresh = RefreshToken.for_user(user)
         return Response(
             {
-                "requires_otp": True,
-                "challenge_token": str(otp.challenge_token),
-                "email": user.email,
-                "expires_in": OTP_EXPIRY_MINUTES * 60,
+                "user": UserSerializer(user).data,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
             },
             status=status.HTTP_201_CREATED,
         )

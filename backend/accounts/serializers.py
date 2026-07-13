@@ -1,8 +1,13 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User
+
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = "email"
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -10,20 +15,6 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "email", "first_name", "last_name", "date_joined"]
         read_only_fields = fields
-
-
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-
-class VerifyOTPSerializer(serializers.Serializer):
-    challenge_token = serializers.UUIDField()
-    otp = serializers.CharField(min_length=6, max_length=6)
-
-
-class ResendOTPSerializer(serializers.Serializer):
-    challenge_token = serializers.UUIDField()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -40,8 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         email = value.lower().strip()
-        existing = User.objects.filter(email__iexact=email).first()
-        if existing and existing.is_active:
+        if User.objects.filter(email__iexact=email, is_active=True).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return email
 
@@ -58,8 +48,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        email = validated_data["email"].lower().strip()
+        User.objects.filter(email__iexact=email, is_active=False).delete()
         return User.objects.create_user(
-            email=validated_data["email"],
+            email=email,
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),

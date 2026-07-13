@@ -11,6 +11,13 @@ export interface AuthTokens {
   refresh: string;
 }
 
+export interface LoginChallengeResponse {
+  requires_otp: true;
+  challenge_token: string;
+  email: string;
+  expires_in: number;
+}
+
 export interface RegisterResponse extends AuthTokens {
   user: User;
 }

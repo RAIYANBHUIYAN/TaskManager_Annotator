@@ -1,13 +1,8 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User
-
-
-class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
-    username_field = "email"
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,6 +10,20 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "email", "first_name", "last_name", "date_joined"]
         read_only_fields = fields
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    challenge_token = serializers.UUIDField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    challenge_token = serializers.UUIDField()
 
 
 class RegisterSerializer(serializers.ModelSerializer):

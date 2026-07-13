@@ -10,6 +10,7 @@ import {
 import type {
   AnnotationImage,
   AuthTokens,
+  LoginChallengeResponse,
   PaginatedResponse,
   RegisterResponse,
   Shape,
@@ -52,6 +53,8 @@ api.interceptors.response.use(
       if (
         original.url?.includes("/api/auth/login") ||
         original.url?.includes("/api/auth/register") ||
+        original.url?.includes("/api/auth/verify-otp") ||
+        original.url?.includes("/api/auth/resend-otp") ||
         original.url?.includes("/api/auth/refresh")
       ) {
         return Promise.reject(error);
@@ -116,10 +119,25 @@ export async function register(input: {
   return data;
 }
 
-export async function login(email: string, password: string): Promise<AuthTokens> {
-  const { data } = await api.post<AuthTokens>("/api/auth/login/", { email, password });
+export async function requestLoginOtp(
+  email: string,
+  password: string,
+): Promise<LoginChallengeResponse> {
+  const { data } = await api.post<LoginChallengeResponse>("/api/auth/login/", { email, password });
+  return data;
+}
+
+export async function verifyLoginOtp(challengeToken: string, otp: string): Promise<AuthTokens> {
+  const { data } = await api.post<AuthTokens>("/api/auth/verify-otp/", {
+    challenge_token: challengeToken,
+    otp,
+  });
   setTokens(data.access, data.refresh);
   return data;
+}
+
+export async function resendLoginOtp(challengeToken: string): Promise<void> {
+  await api.post("/api/auth/resend-otp/", { challenge_token: challengeToken });
 }
 
 export async function fetchMe(): Promise<User> {

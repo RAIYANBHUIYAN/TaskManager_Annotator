@@ -43,7 +43,7 @@ Upload images, draw freehand polygon regions, assign class labels, and review sa
 
 ### ✅ Complete & working
 
-- **Authentication** — Email + JWT (sign up, login, refresh, protected routes)
+- **Authentication** — Email + JWT with email OTP 2FA on login (sign up, verify OTP, refresh, protected routes)
 - **Tasks** — Kanban board with drag-and-drop, date filter, tags, priorities, due dates
 - **Image upload** — Cloudinary storage in production (persistent across redeploys)
 - **Annotation tool** — Smooth pen-style freehand drawing with highlighted saved regions
@@ -319,9 +319,18 @@ CSRF_TRUSTED_ORIGINS=https://frontend-eight-beta-71.vercel.app
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your_smtp_user
+EMAIL_HOST_PASSWORD=your_smtp_password
+DEFAULT_FROM_EMAIL=TaskFlow <noreply@yourdomain.com>
 ```
 
 `DATABASE_URL` and `SECRET_KEY` are set automatically by the Blueprint.
+
+> **Email OTP (2FA):** Login sends a 6-digit code to the user's email. Without SMTP configured, OTP emails will not deliver in production. For local dev, the default console backend prints codes in the Django terminal.
 
 ---
 
@@ -331,7 +340,9 @@ CLOUDINARY_API_SECRET=your_api_secret
 |--------|----------|-------------|
 | GET | `/api/health/` | Health check |
 | POST | `/api/auth/register/` | Create account (returns JWT + user) |
-| POST | `/api/auth/login/` | JWT login |
+| POST | `/api/auth/login/` | Validate credentials, send email OTP |
+| POST | `/api/auth/verify-otp/` | Verify OTP, return JWT tokens |
+| POST | `/api/auth/resend-otp/` | Resend OTP for active login session |
 | POST | `/api/auth/refresh/` | Refresh token |
 | GET | `/api/auth/me/` | Current user |
 | GET/POST | `/api/tasks/?date=YYYY-MM-DD` | Tasks for a date |

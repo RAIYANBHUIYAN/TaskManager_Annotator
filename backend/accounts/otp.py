@@ -1,3 +1,5 @@
+import json
+import re
 import secrets
 from datetime import timedelta
 
@@ -14,6 +16,40 @@ MAX_OTP_ATTEMPTS = 5
 
 class EmailDeliveryError(Exception):
     """Raised when OTP email cannot be delivered."""
+
+
+def _format_email_delivery_error(exc: Exception) -> str:
+    message = str(exc)
+
+    if "only send testing emails to your own email address" in message:
+        match = re.search(r"your own email address \(([^)]+)\)", message)
+        allowed = match.group(1) if match else "your Resend account email"
+        return (
+            f"Resend test mode only allows sending to {allowed}. "
+            f"Sign up with that email, or verify a domain at resend.com/domains."
+        )
+
+    if "Invalid `from` field" in message:
+        return (
+            "Email sender is misconfigured. On Render set "
+            "DEFAULT_FROM_EMAIL to: TaskFlow <onboarding@resend.dev>"
+        )
+
+    if "Resend API error 401" in message or "invalid_api_key" in message.lower():
+        return "Resend API key is invalid. Update RESEND_API_KEY on Render."
+
+    if "Resend API error" in message:
+        json_start = message.find("{")
+        if json_start != -1:
+            try:
+                payload = json.loads(message[json_start:])
+                resend_message = payload.get("message") or payload.get("error")
+                if isinstance(resend_message, str) and resend_message.strip():
+                    return resend_message
+            except json.JSONDecodeError:
+                pass
+
+    return "Could not send verification email. Please try again later or contact support."
 
 
 def generate_otp_code() -> str:
@@ -43,9 +79,7 @@ def send_otp_email(user: User, code: str, purpose: str = "login") -> None:
             fail_silently=False,
         )
     except Exception as exc:
-        raise EmailDeliveryError(
-            "Could not send verification email. Please try again later or contact support."
-        ) from exc
+        raise EmailDeliveryError(_format_email_delivery_error(exc)) from exc
 
 
 def create_login_otp(user: User, purpose: str = "login") -> LoginOTP:

@@ -105,6 +105,26 @@ class RegisterViewTests(TestCase):
         self.assertFalse(User.objects.filter(email="failed@example.com").exists())
 
     @patch("accounts.otp.generate_otp_code", return_value="123456")
+    def test_register_surfaces_resend_recipient_restriction(self, _mock_code):
+        resend_error = (
+            'Resend API error 403: {"statusCode":403,'
+            '"message":"You can only send testing emails to your own email address (owner@resend.com)."}'
+        )
+        with patch("accounts.otp.send_mail", side_effect=RuntimeError(resend_error)):
+            response = self.client.post(
+                "/api/auth/register/",
+                {
+                    "email": "other@example.com",
+                    "password": "SecurePass123!",
+                    "password_confirm": "SecurePass123!",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("owner@resend.com", response.data["detail"])
+
+    @patch("accounts.otp.generate_otp_code", return_value="123456")
     def test_tasks_are_scoped_to_registered_user(self, _mock_code):
         register_response = self.client.post(
             "/api/auth/register/",
